@@ -69,6 +69,7 @@ DETAIL_FIELDS = [
     "url",
     "types",
     "business_status",
+    "geometry/location",
 ]
 
 SCORING = {

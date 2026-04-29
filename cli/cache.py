@@ -36,6 +36,14 @@ CREATE TABLE IF NOT EXISTS prospects (
     raw TEXT NOT NULL,
     fetched_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS lead_status (
+    place_id TEXT PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'NEW',
+    notes TEXT,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (place_id) REFERENCES prospects(place_id) ON DELETE CASCADE
+);
 """
 
 

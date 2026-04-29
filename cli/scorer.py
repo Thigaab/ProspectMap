@@ -37,6 +37,7 @@ def to_prospect(place: dict) -> dict:
     """Convert a raw Place Details dict into a normalized, scored prospect."""
     scoring = score_prospect(place)
     hours = (place.get("opening_hours") or {}).get("weekday_text") or []
+    location = (place.get("geometry") or {}).get("location") or {}
     return {
         "place_id": place.get("place_id"),
         "name": place.get("name"),
@@ -49,6 +50,8 @@ def to_prospect(place: dict) -> dict:
         "hours": hours,
         "google_url": place.get("url"),
         "types": place.get("types") or [],
+        "lat": location.get("lat"),
+        "lng": location.get("lng"),
         "score": scoring["score"],
         "priority": scoring["priority"],
         "reasons": scoring["reasons"],

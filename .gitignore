@@ -13,14 +13,17 @@ venv/
 .vscode/
 .idea/
 
-# Local exports
-*.csv
-*.json
-!package.json
-!tsconfig.json
+# Local exports (CLI output, root only)
+/*.csv
+/*.json
 
-# Local cache
-*.db
+# Local cache (root only — frontend may have its own .db artifacts)
+/*.db
+
+# Frontend build artifacts (also covered by web/.gitignore)
+web/node_modules/
+web/.next/
+web/out/
 
 # OS
 .DS_Store
