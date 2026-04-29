@@ -1,4 +1,4 @@
-"""LeadLocal — point d'entrée CLI pour la prospection de commerces locaux."""
+"""ProspectMap - CLI entry point for local business prospecting."""
 import argparse
 import sys
 
@@ -18,100 +18,102 @@ from places import PlacesAPIError, PlacesClient
 from scorer import enrich
 
 PRIORITY_STYLE = {
-    "HAUTE": "bold red",
-    "MOYENNE": "yellow",
-    "BASSE": "dim white",
+    "HIGH": "bold red",
+    "MEDIUM": "yellow",
+    "LOW": "dim white",
 }
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="leadlocal",
-        description="LeadLocal — prospection de commerces locaux sans site web.",
+        prog="prospectmap",
+        description="ProspectMap - local business prospecting without a website.",
     )
     parser.add_argument(
+        "--city",
         "--ville",
         required=True,
-        help="Ville ou adresse (ex: 'Cugnaux 31270')",
+        help="City or address (e.g. 'Cugnaux 31270')",
     )
     parser.add_argument(
         "--type",
         dest="type_filter",
         default="all",
-        choices=list(config.TYPE_MAPPING.keys()),
-        help="Catégorie de commerce à cibler",
+        choices=list(config.TYPE_MAPPING.keys()) + list(config.TYPE_ALIASES.keys()),
+        help="Business category to target",
     )
     parser.add_argument(
+        "--radius",
         "--rayon",
         type=int,
         default=config.DEFAULT_RADIUS,
-        help=f"Rayon de recherche en mètres (défaut: {config.DEFAULT_RADIUS})",
+        help=f"Search radius in meters (default: {config.DEFAULT_RADIUS})",
     )
     parser.add_argument(
         "--export",
         dest="export_path",
-        help="Chemin du fichier d'export (.csv ou .json)",
+        help="Output file path (.csv or .json)",
     )
     parser.add_argument(
         "--limit",
         type=int,
-        help="Limiter le nombre de prospects affichés/exportés",
+        help="Limit the number of displayed/exported prospects",
     )
     parser.add_argument(
         "--min-score",
         type=int,
         default=0,
-        help="Filtrer les prospects sous ce score (0-100)",
+        help="Filter out prospects below this score (0-100)",
     )
     return parser.parse_args()
 
 
 def display(prospects: list[dict], console: Console) -> None:
     if not prospects:
-        console.print("[yellow]Aucun prospect trouvé.[/yellow]")
+        console.print("[yellow]No prospects found.[/yellow]")
         return
 
     table = Table(
-        title=f"Prospects — {len(prospects)} résultat(s)",
+        title=f"Prospects - {len(prospects)} result(s)",
         title_style="bold cyan",
         header_style="bold",
         show_lines=False,
     )
     table.add_column("#", style="dim", width=4, justify="right")
-    table.add_column("Nom", style="cyan")
-    table.add_column("Téléphone", style="green")
-    table.add_column("Site", style="magenta")
-    table.add_column("Note", justify="right")
-    table.add_column("Avis", justify="right")
+    table.add_column("Name", style="cyan")
+    table.add_column("Phone", style="green")
+    table.add_column("Website", style="magenta")
+    table.add_column("Rating", justify="right")
+    table.add_column("Reviews", justify="right")
     table.add_column("Score", justify="right", style="bold")
-    table.add_column("Priorité")
+    table.add_column("Priority")
 
     for i, p in enumerate(prospects, 1):
-        site = p.get("site_web") or "—"
+        site = p.get("website") or "—"
         if len(site) > 35:
             site = site[:32] + "..."
-        priority = p.get("priorite", "")
+        priority = p.get("priority", "")
         style = PRIORITY_STYLE.get(priority, "white")
-        note = p.get("note")
+        rating = p.get("rating")
         table.add_row(
             str(i),
-            p.get("nom") or "",
-            p.get("telephone") or "—",
+            p.get("name") or "",
+            p.get("phone") or "—",
             site,
-            f"{note}" if note is not None else "—",
-            str(p.get("nb_avis") or 0),
+            f"{rating}" if rating is not None else "—",
+            str(p.get("review_count") or 0),
             str(p.get("score") or 0),
             f"[{style}]{priority}[/{style}]",
         )
     console.print(table)
 
-    counts = {"HAUTE": 0, "MOYENNE": 0, "BASSE": 0}
+    counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
     for p in prospects:
-        counts[p.get("priorite", "BASSE")] = counts.get(p.get("priorite", "BASSE"), 0) + 1
+        counts[p.get("priority", "LOW")] = counts.get(p.get("priority", "LOW"), 0) + 1
     console.print(
-        f"  [bold red]HAUTE[/bold red]: {counts['HAUTE']}   "
-        f"[yellow]MOYENNE[/yellow]: {counts['MOYENNE']}   "
-        f"[dim]BASSE[/dim]: {counts['BASSE']}"
+        f"  [bold red]HIGH[/bold red]: {counts['HIGH']}   "
+        f"[yellow]MEDIUM[/yellow]: {counts['MEDIUM']}   "
+        f"[dim]LOW[/dim]: {counts['LOW']}"
     )
 
 
@@ -119,22 +121,24 @@ def main() -> int:
     args = parse_args()
     console = Console()
 
+    args.type_filter = config.TYPE_ALIASES.get(args.type_filter, args.type_filter)
+
     if not config.GOOGLE_API_KEY:
         console.print(
-            "[red]Erreur:[/red] GOOGLE_API_KEY absente. "
-            "Copiez .env.example en .env et renseignez votre clé."
+            "[red]Error:[/red] GOOGLE_API_KEY is missing. "
+            "Copy .env.example to .env and set your key."
         )
         return 1
 
     try:
         client = PlacesClient()
     except PlacesAPIError as e:
-        console.print(f"[red]Erreur:[/red] {e}")
+        console.print(f"[red]Error:[/red] {e}")
         return 1
 
     console.print(
-        f"[cyan]Recherche[/cyan] : type=[bold]{args.type_filter}[/bold] "
-        f"ville=[bold]{args.ville}[/bold] rayon=[bold]{args.rayon}m[/bold]"
+        f"[cyan]Search[/cyan]: type=[bold]{args.type_filter}[/bold] "
+        f"city=[bold]{args.city}[/bold] radius=[bold]{args.radius}m[/bold]"
     )
 
     try:
@@ -147,7 +151,7 @@ def main() -> int:
             console=console,
             transient=True,
         ) as progress:
-            task = progress.add_task("Recherche...", total=None)
+            task = progress.add_task("Searching...", total=None)
 
             def on_progress(label: str, current: int, total: int) -> None:
                 if total > 0:
@@ -156,13 +160,13 @@ def main() -> int:
                     progress.update(task, description=label)
 
             raw = client.search_prospects(
-                args.ville, args.type_filter, args.rayon, on_progress=on_progress
+                args.city, args.type_filter, args.radius, on_progress=on_progress
             )
     except PlacesAPIError as e:
-        console.print(f"[red]Erreur API:[/red] {e}")
+        console.print(f"[red]API error:[/red] {e}")
         return 2
     except KeyboardInterrupt:
-        console.print("\n[yellow]Interrompu par l'utilisateur.[/yellow]")
+        console.print("\n[yellow]Interrupted by user.[/yellow]")
         return 130
 
     prospects = enrich(raw)
@@ -176,9 +180,9 @@ def main() -> int:
     if args.export_path and prospects:
         try:
             path = export(prospects, args.export_path)
-            console.print(f"\n[green]Export :[/green] {path}")
+            console.print(f"\n[green]Export:[/green] {path}")
         except ValueError as e:
-            console.print(f"[red]Erreur export :[/red] {e}")
+            console.print(f"[red]Export error:[/red] {e}")
             return 3
 
     return 0

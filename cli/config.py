@@ -1,4 +1,4 @@
-"""Chargement de la configuration et constantes globales."""
+"""Configuration loading and shared constants."""
 import os
 from dotenv import load_dotenv
 
@@ -12,11 +12,10 @@ NEARBY_SEARCH_URL = f"{PLACES_BASE_URL}/nearbysearch/json"
 PLACE_DETAILS_URL = f"{PLACES_BASE_URL}/details/json"
 GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 
-# Mapping des catégories métier vers les types Google Places
 TYPE_MAPPING = {
     "restaurant": ["restaurant"],
     "bar": ["bar", "cafe"],
-    "commerce": [
+    "retail": [
         "store",
         "clothing_store",
         "shoe_store",
@@ -25,7 +24,7 @@ TYPE_MAPPING = {
         "book_store",
         "jewelry_store",
     ],
-    "service": [
+    "services": [
         "beauty_salon",
         "hair_care",
         "plumber",
@@ -45,11 +44,15 @@ TYPE_MAPPING = {
     ],
 }
 
+TYPE_ALIASES = {
+    "commerce": "retail",
+    "service": "services",
+}
+
 DEFAULT_RADIUS = 2000
-RATE_LIMIT_DELAY = 2.0  # next_page_token Google n'est valide qu'après ~2s
+RATE_LIMIT_DELAY = 2.0  # Google's next_page_token is only valid after ~2s
 DETAIL_DELAY = 0.05
 
-# Champs renvoyés par l'API Place Details
 DETAIL_FIELDS = [
     "name",
     "formatted_address",
@@ -65,7 +68,6 @@ DETAIL_FIELDS = [
     "business_status",
 ]
 
-# Pondération du scoring
 SCORING = {
     "no_website": 50,
     "rating_4_plus": 20,
@@ -73,4 +75,4 @@ SCORING = {
     "reviews_100_plus": 15,
 }
 
-PRIORITY_THRESHOLDS = {"HAUTE": 70, "MOYENNE": 40}
+PRIORITY_THRESHOLDS = {"HIGH": 70, "MEDIUM": 40}

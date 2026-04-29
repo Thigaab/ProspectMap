@@ -1,25 +1,25 @@
-"""Export des prospects au format CSV ou JSON."""
+"""Export prospects as CSV or JSON."""
 import csv
 import json
 from pathlib import Path
 
 CSV_FIELDS = [
-    "nom",
-    "adresse",
-    "telephone",
-    "site_web",
-    "note",
-    "nb_avis",
+    "name",
+    "address",
+    "phone",
+    "website",
+    "rating",
+    "review_count",
     "score",
-    "priorite",
-    "raisons",
+    "priority",
+    "reasons",
     "google_url",
     "place_id",
 ]
 
 
 def export(prospects: list[dict], path: str) -> str:
-    """Exporte la liste de prospects vers un fichier .csv ou .json."""
+    """Export the prospect list to a .csv or .json file."""
     target = Path(path)
     suffix = target.suffix.lower()
     if suffix == ".json":
@@ -27,7 +27,7 @@ def export(prospects: list[dict], path: str) -> str:
     if suffix == ".csv":
         return _export_csv(prospects, target)
     raise ValueError(
-        f"Format non supporté: '{suffix}'. Utilisez .csv ou .json."
+        f"Unsupported format: '{suffix}'. Use .csv or .json."
     )
 
 

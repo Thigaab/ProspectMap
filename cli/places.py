@@ -1,4 +1,4 @@
-"""Wrapper autour de l'API Google Places (Text Search, Nearby Search, Place Details)."""
+"""Wrapper around the Google Places API (Text Search, Nearby Search, Place Details)."""
 import time
 from typing import Callable, Optional
 
@@ -8,7 +8,7 @@ import config
 
 
 class PlacesAPIError(Exception):
-    """Erreur renvoyée par l'API Google Places."""
+    """Error returned by the Google Places API."""
 
 
 class PlacesClient:
@@ -16,23 +16,23 @@ class PlacesClient:
         self.api_key = api_key or config.GOOGLE_API_KEY
         if not self.api_key:
             raise PlacesAPIError(
-                "GOOGLE_API_KEY manquante — définissez-la dans un fichier .env"
+                "GOOGLE_API_KEY is missing - set it in a .env file"
             )
         self.session = requests.Session()
 
     def geocode(self, address: str) -> tuple[float, float]:
-        """Convertit une adresse texte en coordonnées (lat, lng)."""
+        """Convert a text address into coordinates (lat, lng)."""
         data = self._get(config.GEOCODE_URL, {"address": address, "key": self.api_key})
         results = data.get("results", [])
         if not results:
-            raise PlacesAPIError(f"Aucune coordonnée trouvée pour '{address}'")
+            raise PlacesAPIError(f"No coordinates found for '{address}'")
         loc = results[0]["geometry"]["location"]
         return loc["lat"], loc["lng"]
 
     def nearby_search(
         self, lat: float, lng: float, radius: int, place_type: str
     ) -> list[dict]:
-        """Recherche de proximité paginée pour un type Google Places donné."""
+        """Paginated nearby search for a given Google Places type."""
         params = {
             "location": f"{lat},{lng}",
             "radius": radius,
@@ -42,12 +42,12 @@ class PlacesClient:
         return self._paginate(config.NEARBY_SEARCH_URL, params)
 
     def text_search(self, query: str) -> list[dict]:
-        """Recherche textuelle paginée."""
+        """Paginated text search."""
         params = {"query": query, "key": self.api_key}
         return self._paginate(config.TEXT_SEARCH_URL, params)
 
     def place_details(self, place_id: str) -> dict:
-        """Récupère les détails enrichis d'un établissement."""
+        """Fetch enriched details for a place."""
         params = {
             "place_id": place_id,
             "fields": ",".join(config.DETAIL_FIELDS),
@@ -59,21 +59,22 @@ class PlacesClient:
 
     def search_prospects(
         self,
-        ville: str,
+        city: str,
         type_filter: str,
-        rayon: int,
+        radius: int,
         on_progress: Optional[Callable[[str, int, int], None]] = None,
     ) -> list[dict]:
-        """Pipeline complet : géocode -> nearby pour chaque type -> détails dédoublonnés."""
-        types = config.TYPE_MAPPING.get(type_filter, [type_filter])
-        lat, lng = self.geocode(ville)
+        """Full pipeline: geocode -> nearby for each type -> deduplicated details."""
+        normalized_type = config.TYPE_ALIASES.get(type_filter, type_filter)
+        types = config.TYPE_MAPPING.get(normalized_type, [normalized_type])
+        latitude, longitude = self.geocode(city)
 
         seen: set[str] = set()
         raw_places: list[dict] = []
         for t in types:
             if on_progress:
-                on_progress(f"Recherche {t}", 0, 0)
-            for raw in self.nearby_search(lat, lng, rayon, t):
+                on_progress(f"Searching {t}", 0, 0)
+            for raw in self.nearby_search(latitude, longitude, radius, t):
                 pid = raw.get("place_id")
                 if pid and pid not in seen:
                     seen.add(pid)
@@ -83,7 +84,7 @@ class PlacesClient:
         total = len(raw_places)
         for idx, raw in enumerate(raw_places, 1):
             if on_progress:
-                on_progress("Détails", idx, total)
+                on_progress("Details", idx, total)
             time.sleep(config.DETAIL_DELAY)
             details = self.place_details(raw["place_id"])
             if details and details.get("business_status", "OPERATIONAL") == "OPERATIONAL":
@@ -108,7 +109,7 @@ class PlacesClient:
             response = self.session.get(url, params=params, timeout=15)
             response.raise_for_status()
         except requests.RequestException as e:
-            raise PlacesAPIError(f"Erreur réseau: {e}") from e
+            raise PlacesAPIError(f"Network error: {e}") from e
 
         data = response.json()
         status = data.get("status")

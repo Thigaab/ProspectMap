@@ -1,96 +1,103 @@
-# LeadLocal (ProspectMap)
+# ProspectMap
 
-Outil de prospection de commerces locaux qui n'ont pas (ou peu) de site web.
-Utilise l'API Google Places pour trouver les établissements autour d'une ville,
-les score sur 100 et exporte les meilleurs leads en CSV ou JSON.
+Lead generation tool for local businesses that do not have, or have very little,
+web presence. It uses the Google Places API to find businesses around a city,
+scores them out of 100, and exports the best leads to CSV or JSON.
 
 ## Stack
 
-- **CLI Python** (`cli/`) — première brique, fonctionnelle en autonomie
-- **Frontend React/Next.js** — viendra dans un second temps
+- **Python CLI** (`cli/`) - first building block, already usable on its own
+- **React/Next.js frontend** - planned for a later phase
 
 ## Installation
 
 ```bash
-# 1. Cloner et entrer dans le projet
+# 1. Clone and enter the project
 git clone <repo> ProspectMap && cd ProspectMap
 
-# 2. Créer un venv Python 3.11+
+# 2. Create a Python 3.11+ virtual environment
 python3 -m venv .venv
-source .venv/bin/activate
 
-# 3. Installer les dépendances
+# Activation depends on your shell:
+source .venv/bin/activate.fish   # fish
+# source .venv/bin/activate       # bash / zsh
+# .venv\Scripts\activate          # Windows (cmd) / .ps1 for PowerShell
+
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Configurer la clé API
+# 4. Configure the API key
 cp .env.example .env
-# puis éditer .env et y coller votre GOOGLE_API_KEY
+# then edit .env and paste your GOOGLE_API_KEY
 ```
 
-### Activer les API Google nécessaires
+### Enable the required Google APIs
 
-Dans la console Google Cloud, sur le projet où votre clé est créée, activez :
+In the Google Cloud console, for the project where your key was created, enable:
 
 - **Places API** (Text Search, Nearby Search, Place Details)
-- **Geocoding API** (conversion ville → coordonnées)
+- **Geocoding API** (city to coordinates)
 
-## Utilisation
+## Usage
 
 ```bash
-python cli/main.py --ville "Cugnaux 31270" --type all --rayon 2000 --export prospects.csv
+python cli/main.py --city "Cugnaux 31270" --type all --radius 2000 --export prospects.csv
 ```
 
 ### Arguments
 
-| Argument | Requis | Description |
+| Argument | Required | Description |
 | --- | --- | --- |
-| `--ville` | oui | Ville ou adresse (ex. `"Cugnaux 31270"`) |
-| `--type` | non | `restaurant`, `bar`, `commerce`, `service`, `all` (défaut : `all`) |
-| `--rayon` | non | Rayon de recherche en mètres (défaut : `2000`) |
-| `--export` | non | Chemin de sortie `.csv` ou `.json` |
-| `--limit` | non | Limite le nombre de prospects affichés / exportés |
-| `--min-score` | non | Filtre les prospects sous ce score (0-100) |
+| `--city` | yes | City or address (e.g. `"Cugnaux 31270"`) |
+| `--type` | no | `restaurant`, `bar`, `retail`, `services`, `all` (default: `all`) |
+| `--radius` | no | Search radius in meters (default: `2000`) |
+| `--export` | no | Output path for `.csv` or `.json` |
+| `--limit` | no | Limit the number of prospects displayed/exported |
+| `--min-score` | no | Filter out prospects below this score (0-100) |
+
+Legacy French aliases are still accepted for `--city`, `--radius`, and the
+`commerce` / `service` type values.
 
 ### Exemples
 
 ```bash
-# Tous les commerces de Cugnaux dans un rayon de 2 km, export CSV
-python cli/main.py --ville "Cugnaux 31270" --type all --rayon 2000 --export prospects.csv
+# All businesses in Cugnaux within a 2 km radius, export CSV
+python cli/main.py --city "Cugnaux 31270" --type all --radius 2000 --export prospects.csv
 
-# Seulement les restaurants prioritaires (>= 70/100)
-python cli/main.py --ville "Toulouse" --type restaurant --min-score 70
+# Only priority restaurants (>= 70/100)
+python cli/main.py --city "Toulouse" --type restaurant --min-score 70
 
-# Top 20 services autour de Blagnac, export JSON
-python cli/main.py --ville "Blagnac" --type service --rayon 3000 --limit 20 --export top.json
+# Top 20 services around Blagnac, export JSON
+python cli/main.py --city "Blagnac" --type services --radius 3000 --limit 20 --export top.json
 ```
 
 ## Scoring
 
-Chaque prospect est noté sur **100 points** :
+Each prospect is scored out of **100 points**:
 
-| Critère | Points |
+| Criterion | Points |
 | --- | ---: |
-| Pas de site web | +50 |
-| Note ≥ 4.0 | +20 |
-| Au moins 50 avis | +15 |
-| Au moins 100 avis | +15 |
+| No website | +50 |
+| Rating >= 4.0 | +20 |
+| At least 50 reviews | +15 |
+| At least 100 reviews | +15 |
 
-Les prospects sont ensuite répartis en trois priorités :
+Prospects are then split into three priorities:
 
-- **HAUTE** : score ≥ 70
-- **MOYENNE** : score ≥ 40
-- **BASSE** : score < 40
+- **HIGH**: score >= 70
+- **MEDIUM**: score >= 40
+- **LOW**: score < 40
 
 ## Structure
 
 ```
 ProspectMap/
 ├── cli/
-│   ├── main.py        # Point d'entrée argparse
-│   ├── places.py      # Wrapper Google Places API
-│   ├── scorer.py      # Logique de scoring
-│   ├── exporter.py    # Export CSV / JSON
-│   └── config.py      # .env + constantes
+│   ├── main.py        # argparse entry point
+│   ├── places.py      # Google Places API wrapper
+│   ├── scorer.py      # scoring logic
+│   ├── exporter.py    # CSV / JSON export
+│   └── config.py      # .env + constants
 ├── .env.example
 ├── requirements.txt
 └── README.md
@@ -98,5 +105,5 @@ ProspectMap/
 
 ## Roadmap
 
-- [x] CLI Python (recherche, scoring, export)
-- [ ] Frontend React/Next.js (carte interactive, filtres, suivi des leads)
+- [x] Python CLI (search, scoring, export)
+- [ ] React/Next.js frontend (interactive map, filters, lead tracking)
