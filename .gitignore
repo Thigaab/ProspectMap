@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+
+# Env
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Exports locaux
+*.csv
+*.json
+!package.json
+!tsconfig.json
+
+# OS
+.DS_Store
