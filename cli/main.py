@@ -1,6 +1,8 @@
 """ProspectMap - CLI entry point for local business prospecting."""
 import argparse
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 
 from rich.console import Console
 from rich.progress import (
@@ -13,6 +15,7 @@ from rich.progress import (
 from rich.table import Table
 
 import config
+from cache import Cache
 from exporter import export
 from places import PlacesAPIError, PlacesClient
 from scorer import enrich
@@ -64,6 +67,22 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=0,
         help="Filter out prospects below this score (0-100)",
+    )
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Bypass the local cache and force a fresh API call",
+    )
+    parser.add_argument(
+        "--ttl-days",
+        type=int,
+        default=config.DEFAULT_TTL_DAYS,
+        help=f"Cache freshness window in days (default: {config.DEFAULT_TTL_DAYS})",
+    )
+    parser.add_argument(
+        "--no-display",
+        action="store_true",
+        help="Skip the prospect table (useful when only exporting)",
     )
     return parser.parse_args()
 
@@ -123,51 +142,73 @@ def main() -> int:
 
     args.type_filter = config.TYPE_ALIASES.get(args.type_filter, args.type_filter)
 
-    if not config.GOOGLE_API_KEY:
-        console.print(
-            "[red]Error:[/red] GOOGLE_API_KEY is missing. "
-            "Copy .env.example to .env and set your key."
-        )
-        return 1
-
-    try:
-        client = PlacesClient()
-    except PlacesAPIError as e:
-        console.print(f"[red]Error:[/red] {e}")
-        return 1
-
     console.print(
         f"[cyan]Search[/cyan]: type=[bold]{args.type_filter}[/bold] "
         f"city=[bold]{args.city}[/bold] radius=[bold]{args.radius}m[/bold]"
     )
 
-    try:
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TextColumn("{task.completed}/{task.total}"),
-            TimeElapsedColumn(),
-            console=console,
-            transient=True,
-        ) as progress:
-            task = progress.add_task("Searching...", total=None)
-
-            def on_progress(label: str, current: int, total: int) -> None:
-                if total > 0:
-                    progress.update(task, description=label, completed=current, total=total)
-                else:
-                    progress.update(task, description=label)
-
-            raw = client.search_prospects(
-                args.city, args.type_filter, args.radius, on_progress=on_progress
+    with Cache(Path(config.DB_PATH)) as cache:
+        cached = None
+        if not args.refresh:
+            cached = cache.get_search(
+                args.city, args.type_filter, args.radius, args.ttl_days
             )
-    except PlacesAPIError as e:
-        console.print(f"[red]API error:[/red] {e}")
-        return 2
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Interrupted by user.[/yellow]")
-        return 130
+
+        if cached is not None:
+            raw, fetched_at = cached
+            age_days = (datetime.now(timezone.utc) - fetched_at).days
+            console.print(
+                f"[dim]Cache hit: {len(raw)} prospect(s), {age_days}d old "
+                f"— pass --refresh to re-query the API.[/dim]"
+            )
+        else:
+            if not config.GOOGLE_API_KEY:
+                console.print(
+                    "[red]Error:[/red] GOOGLE_API_KEY is missing. "
+                    "Copy .env.example to .env and set your key."
+                )
+                return 1
+
+            try:
+                client = PlacesClient()
+            except PlacesAPIError as e:
+                console.print(f"[red]Error:[/red] {e}")
+                return 1
+
+            try:
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    TextColumn("{task.completed}/{task.total}"),
+                    TimeElapsedColumn(),
+                    console=console,
+                    transient=True,
+                ) as progress:
+                    task = progress.add_task("Searching...", total=None)
+
+                    def on_progress(label: str, current: int, total: int) -> None:
+                        if total > 0:
+                            progress.update(
+                                task, description=label, completed=current, total=total
+                            )
+                        else:
+                            progress.update(task, description=label)
+
+                    raw = client.search_prospects(
+                        args.city,
+                        args.type_filter,
+                        args.radius,
+                        on_progress=on_progress,
+                    )
+            except PlacesAPIError as e:
+                console.print(f"[red]API error:[/red] {e}")
+                return 2
+            except KeyboardInterrupt:
+                console.print("\n[yellow]Interrupted by user.[/yellow]")
+                return 130
+
+            cache.save_search(args.city, args.type_filter, args.radius, raw)
 
     prospects = enrich(raw)
     if args.min_score:
@@ -175,7 +216,8 @@ def main() -> int:
     if args.limit:
         prospects = prospects[: args.limit]
 
-    display(prospects, console)
+    if not args.no_display:
+        display(prospects, console)
 
     if args.export_path and prospects:
         try:

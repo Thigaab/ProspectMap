@@ -19,5 +19,8 @@ venv/
 !package.json
 !tsconfig.json
 
+# Local cache
+*.db
+
 # OS
 .DS_Store

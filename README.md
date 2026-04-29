@@ -19,9 +19,9 @@ git clone <repo> ProspectMap && cd ProspectMap
 python3 -m venv .venv
 
 # Activation depends on your shell:
-source .venv/bin/activate.fish   # fish
-# source .venv/bin/activate       # bash / zsh
-# .venv\Scripts\activate          # Windows (cmd) / .ps1 for PowerShell
+source .venv/bin/activate          # bash / zsh
+# source .venv/bin/activate.fish   # fish
+# .venv\Scripts\activate           # Windows (cmd) / .ps1 for PowerShell
 
 # 3. Install dependencies
 pip install -r requirements.txt

@@ -53,6 +53,9 @@ DEFAULT_RADIUS = 2000
 RATE_LIMIT_DELAY = 2.0  # Google's next_page_token is only valid after ~2s
 DETAIL_DELAY = 0.05
 
+DB_PATH = "prospects.db"
+DEFAULT_TTL_DAYS = 30
+
 DETAIL_FIELDS = [
     "name",
     "formatted_address",
