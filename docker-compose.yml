@@ -3,8 +3,7 @@ services:
     build:
       context: .
       dockerfile: api/Dockerfile
-    ports:
-      - "8000:8000"
+    network_mode: host
     env_file: .env
     environment:
       PROSPECTMAP_DB: /data/prospects.db
@@ -15,8 +14,7 @@ services:
     build:
       context: .
       dockerfile: web/Dockerfile
-    ports:
-      - "3000:3000"
+    network_mode: host
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
     depends_on:
