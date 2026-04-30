@@ -234,3 +234,4 @@ ProspectMap/
 - [x] FastAPI backend
 - [x] Next.js frontend (dashboard, map, table, kanban)
 - [ ] Polish: CSV export from the UI, dark-mode toggle, replay-able saved searches
+      
