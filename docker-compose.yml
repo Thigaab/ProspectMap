@@ -3,22 +3,24 @@ services:
     build:
       context: .
       dockerfile: api/Dockerfile
-    network_mode: host
     env_file: .env
     environment:
       PROSPECTMAP_DB: /data/prospects.db
     volumes:
       - db_data:/data
+    expose:
+      - "8000"
 
   web:
     build:
       context: .
       dockerfile: web/Dockerfile
-    network_mode: host
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_API_URL: https://api.prospectmap.bantou.me
     depends_on:
       - api
+    expose:
+      - "3000"
 
 volumes:
   db_data:
