@@ -1,9 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
-import { useProspects, useSearches } from "@/lib/hooks";
+import { useDeleteSearch, useProspects, useSearches } from "@/lib/hooks";
 import { SearchForm } from "@/components/search-form";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import type { CachedSearch } from "@/lib/types";
 
 export default function Dashboard() {
   const health = useQuery({
@@ -13,8 +17,17 @@ export default function Dashboard() {
   });
   const prospects = useProspects();
   const searches = useSearches();
+  const deleteSearch = useDeleteSearch();
+  const [pendingDelete, setPendingDelete] = useState<CachedSearch | null>(null);
 
   const counts = countByPriority(prospects.data ?? []);
+
+  function confirmDelete() {
+    if (!pendingDelete) return;
+    deleteSearch.mutate(pendingDelete.id, {
+      onSuccess: () => setPendingDelete(null),
+    });
+  }
 
   return (
     <div className="space-y-8">
@@ -51,9 +64,9 @@ export default function Dashboard() {
           <p className="text-sm text-zinc-500">Loading…</p>
         ) : searches.data && searches.data.length > 0 ? (
           <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
-            {searches.data.map((s, i) => (
+            {searches.data.map((s) => (
               <li
-                key={`${s.city}-${s.type_filter}-${s.radius}-${i}`}
+                key={s.id}
                 className="flex items-center justify-between px-4 py-3 text-sm"
               >
                 <div>
@@ -62,9 +75,19 @@ export default function Dashboard() {
                     · {s.type_filter} · {s.radius}m
                   </span>
                 </div>
-                <div className="text-zinc-500">
-                  {s.prospect_count} prospects ·{" "}
-                  {new Date(s.fetched_at).toLocaleDateString()}
+                <div className="flex items-center gap-3 text-zinc-500">
+                  <span>
+                    {s.prospect_count} prospects ·{" "}
+                    {new Date(s.fetched_at).toLocaleDateString()}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPendingDelete(s)}
+                    aria-label={`Delete search for ${s.city}`}
+                    className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </li>
             ))}
@@ -73,6 +96,32 @@ export default function Dashboard() {
           <p className="text-sm text-zinc-500">No cached searches yet.</p>
         )}
       </section>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete this search?"
+        description={
+          pendingDelete && (
+            <p>
+              <span className="font-medium">{pendingDelete.city}</span>
+              {" · "}
+              {pendingDelete.type_filter} · {pendingDelete.radius}m. This will
+              also remove its{" "}
+              <span className="font-medium">
+                {pendingDelete.prospect_count} prospect(s)
+              </span>{" "}
+              from the database (including any notes and statuses).
+            </p>
+          )
+        }
+        confirmLabel="Delete search"
+        pending={deleteSearch.isPending}
+        error={deleteSearch.isError ? "Failed to delete." : null}
+        onConfirm={confirmDelete}
+        onClose={() => {
+          if (!deleteSearch.isPending) setPendingDelete(null);
+        }}
+      />
     </div>
   );
 }

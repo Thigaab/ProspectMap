@@ -92,6 +92,7 @@ python cli/main.py --city "Cugnaux 31270" --type all --radius 2000 --export pros
 | `--refresh` | no | Bypass the cache and force a fresh API call |
 | `--ttl-days` | no | Cache freshness window in days (default: `30`) |
 | `--no-display` | no | Skip the rich table (handy with `--export`) |
+| `--no-web-check` | no | Skip the website quality audit (faster) |
 
 Legacy French aliases are still accepted for `--city`, `--radius`, and the
 `commerce` / `service` type values.
@@ -114,10 +115,11 @@ python cli/main.py --city "Cugnaux 31270" --refresh
 
 ## Caching (`prospects.db`)
 
-A local SQLite file at the repo root caches three things:
+A local SQLite file at the repo root caches four things:
 
 - `searches` — keyed by `(city, type, radius)` with a `fetched_at` timestamp.
 - `prospects` — raw Place Details JSON keyed by `place_id`.
+- `web_audits` — quality audit per website URL, TTL 30 days.
 - `lead_status` — your follow-up data per prospect (status + notes), used by
   the web UI's kanban.
 
@@ -165,23 +167,36 @@ Four routes:
 
 ## Scoring
 
-Each prospect is scored out of **100 points**:
+Each prospect is scored out of **100 points**. The web-presence sub-score
+is 0–50, derived from a lightweight HTTP audit (status, HTTPS, mobile
+viewport, social-only, free-hosting). Audits live in `cli/web_audit.py`
+and are cached per URL in SQLite.
 
-| Criterion | Points |
-| --- | ---: |
-| No website | +50 |
-| Rating >= 4.0 | +20 |
-| At least 50 reviews | +15 |
-| At least 100 reviews | +15 |
+| Criterion                                    | Points |
+| -------------------------------------------- | -----: |
+| Web presence (max)                           | 0–50   |
+| ‣ no website *or* unreachable                | +50    |
+| ‣ social-only link (Facebook, IG, Linktree…) | +40    |
+| ‣ free hosting (Wix, e-monsite…)             | +20    |
+| ‣ no HTTPS                                   | +15    |
+| ‣ not mobile-friendly (no `<meta viewport>`) | +15    |
+| Rating ≥ 4.0                                 | +20    |
+| ≥ 50 reviews                                 | +15    |
+| ≥ 100 reviews                                | +15    |
+
+Weak-site penalties stack but the web sub-score is **capped at 50**, so a
+healthy site is never worth more than no site.
 
 Buckets:
 
-- **HIGH**: score >= 70
-- **MEDIUM**: score >= 40
+- **HIGH**: score ≥ 70
+- **MEDIUM**: score ≥ 40
 - **LOW**: score < 40
 
-Thresholds and weights live in `cli/config.py` (`SCORING`,
-`PRIORITY_THRESHOLDS`).
+Pass `--no-web-check` to skip the audit step entirely; the scorer then
+falls back to the original binary "has a website" rule. Thresholds, weights,
+and audit constants live in `cli/config.py` (`SCORING`,
+`PRIORITY_THRESHOLDS`, `WEB_AUDIT_*`).
 
 ## Structure
 
@@ -193,6 +208,7 @@ ProspectMap/
 │   ├── cache.py       # SQLite cache (searches + prospects + lead_status)
 │   ├── leads.py       # lead_status operations
 │   ├── scorer.py      # 100-point scoring + normalization
+│   ├── web_audit.py   # website quality audit (HTTP probe, cached)
 │   ├── exporter.py    # CSV / JSON export
 │   └── config.py      # .env loading + constants
 ├── api/

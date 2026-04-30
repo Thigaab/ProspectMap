@@ -15,6 +15,7 @@ from rich.progress import (
 from rich.table import Table
 
 import config
+import web_audit
 from cache import Cache
 from exporter import export
 from places import PlacesAPIError, PlacesClient
@@ -83,6 +84,11 @@ def parse_args() -> argparse.Namespace:
         "--no-display",
         action="store_true",
         help="Skip the prospect table (useful when only exporting)",
+    )
+    parser.add_argument(
+        "--no-web-check",
+        action="store_true",
+        help="Skip the website quality audit (faster, but no weak-site detection)",
     )
     return parser.parse_args()
 
@@ -210,7 +216,32 @@ def main() -> int:
 
             cache.save_search(args.city, args.type_filter, args.radius, raw)
 
-    prospects = enrich(raw)
+        audits = None
+        if not args.no_web_check:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TextColumn("{task.completed}/{task.total}"),
+                TimeElapsedColumn(),
+                console=console,
+                transient=True,
+            ) as progress:
+                task = progress.add_task("Auditing websites...", total=None)
+
+                def on_audit(label: str, current: int, total: int) -> None:
+                    if total > 0:
+                        progress.update(
+                            task, description=label, completed=current, total=total
+                        )
+                    else:
+                        progress.update(task, description=label)
+
+                audits = web_audit.audit_places(
+                    cache.conn, raw, on_progress=on_audit
+                )
+
+    prospects = enrich(raw, audits=audits)
     if args.min_score:
         prospects = [p for p in prospects if p["score"] >= args.min_score]
     if args.limit:

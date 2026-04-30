@@ -1,7 +1,7 @@
 """Search history + trigger a new search (cache-first, then API)."""
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from .. import _bootstrap  # noqa: F401
 from ..deps import get_cache
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api/searches", tags=["searches"])
 @router.get("", response_model=list[CachedSearch])
 def list_searches(cache: Cache = Depends(get_cache)):
     rows = cache.conn.execute(
-        "SELECT s.city, s.type_filter, s.radius, s.fetched_at, "
+        "SELECT s.id, s.city, s.type_filter, s.radius, s.fetched_at, "
         "       COUNT(sr.place_id) AS prospect_count "
         "FROM searches s "
         "LEFT JOIN search_results sr ON sr.search_id = s.id "
@@ -26,6 +26,15 @@ def list_searches(cache: Cache = Depends(get_cache)):
         "ORDER BY s.fetched_at DESC"
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+@router.delete("/{search_id}", status_code=204)
+def delete_search(search_id: int, cache: Cache = Depends(get_cache)):
+    """Hard-delete a search and every prospect that belonged to it."""
+    result = cache.delete_search(search_id)
+    if result is None:
+        raise HTTPException(404, f"Search {search_id} not found")
+    return Response(status_code=204)
 
 
 @router.post("", response_model=SearchResponse)

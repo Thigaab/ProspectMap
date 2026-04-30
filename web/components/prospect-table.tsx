@@ -1,15 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Trash2 } from "lucide-react";
 import type {
   LeadStatus,
   Priority,
   Prospect,
 } from "@/lib/types";
-import { useProspects } from "@/lib/hooks";
+import { useDeleteProspect, useProspects } from "@/lib/hooks";
 import { Input, Label, Select } from "./ui/field";
 import { PriorityBadge, StatusBadge } from "./ui/badge";
+import { ConfirmDialog } from "./confirm-dialog";
 import { cn } from "@/lib/utils";
 
 type SortKey = "name" | "score" | "rating" | "review_count";
@@ -33,6 +34,15 @@ export function ProspectTable() {
   const [minScore, setMinScore] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [pendingDelete, setPendingDelete] = useState<Prospect | null>(null);
+  const deleteProspect = useDeleteProspect();
+
+  function confirmDelete() {
+    if (!pendingDelete) return;
+    deleteProspect.mutate(pendingDelete.place_id, {
+      onSuccess: () => setPendingDelete(null),
+    });
+  }
 
   const rows = useMemo(() => {
     let r = data ?? [];
@@ -160,6 +170,7 @@ export function ProspectTable() {
               </Th>
               <th className="px-3 py-2 font-medium">Priority</th>
               <th className="px-3 py-2 font-medium">Status</th>
+              <th className="px-3 py-2" aria-label="Actions" />
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -200,12 +211,22 @@ export function ProspectTable() {
                 <td className="px-3 py-2">
                   <StatusBadge value={p.status} />
                 </td>
+                <td className="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => setPendingDelete(p)}
+                    aria-label={`Delete ${p.name ?? "prospect"}`}
+                    className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={9}
                   className="px-3 py-6 text-center text-zinc-500"
                 >
                   No prospects match these filters.
@@ -215,6 +236,29 @@ export function ProspectTable() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete this prospect?"
+        description={
+          pendingDelete && (
+            <p>
+              <span className="font-medium">
+                {pendingDelete.name ?? pendingDelete.place_id}
+              </span>{" "}
+              will be removed from the database, along with its notes and
+              status. This cannot be undone.
+            </p>
+          )
+        }
+        confirmLabel="Delete prospect"
+        pending={deleteProspect.isPending}
+        error={deleteProspect.isError ? "Failed to delete." : null}
+        onConfirm={confirmDelete}
+        onClose={() => {
+          if (!deleteProspect.isPending) setPendingDelete(null);
+        }}
+      />
     </div>
   );
 }

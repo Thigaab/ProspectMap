@@ -44,6 +44,12 @@ CREATE TABLE IF NOT EXISTS lead_status (
     updated_at TEXT NOT NULL,
     FOREIGN KEY (place_id) REFERENCES prospects(place_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS web_audits (
+    url TEXT PRIMARY KEY,
+    raw TEXT NOT NULL,
+    fetched_at TEXT NOT NULL
+);
 """
 
 
@@ -94,6 +100,61 @@ class Cache:
         ).fetchall()
         places = [json.loads(r["raw"]) for r in rows]
         return places, fetched_at
+
+    def delete_prospect(self, place_id: str) -> bool:
+        """Hard-delete a prospect and every trace of it.
+
+        Removes search_results rows pointing at it (no FK on place_id, so
+        we clean them ourselves) and the prospects row (which cascades to
+        lead_status). Returns True if a row was removed.
+        """
+        cur = self.conn.cursor()
+        cur.execute("DELETE FROM search_results WHERE place_id = ?", (place_id,))
+        cur.execute("DELETE FROM prospects WHERE place_id = ?", (place_id,))
+        removed = cur.rowcount > 0
+        self.conn.commit()
+        return removed
+
+    def delete_search(self, search_id: int) -> Optional[int]:
+        """Hard-delete a search and every prospect that belonged to it.
+
+        Per the user's intent: prospects are removed even if they also
+        belonged to other searches. Cascades:
+        - search row → search_results (FK ON DELETE CASCADE)
+        - prospects row → lead_status (FK ON DELETE CASCADE)
+        - search_results rows from *other* searches that referenced the
+          now-deleted prospects are cleaned up explicitly.
+
+        Returns the number of prospects deleted, or None if the search
+        doesn't exist.
+        """
+        cur = self.conn.cursor()
+        if not cur.execute(
+            "SELECT 1 FROM searches WHERE id = ?", (search_id,)
+        ).fetchone():
+            return None
+
+        place_ids = [
+            row["place_id"]
+            for row in cur.execute(
+                "SELECT place_id FROM search_results WHERE search_id = ?",
+                (search_id,),
+            ).fetchall()
+        ]
+
+        cur.execute("DELETE FROM searches WHERE id = ?", (search_id,))
+        if place_ids:
+            placeholders = ",".join("?" for _ in place_ids)
+            cur.execute(
+                f"DELETE FROM search_results WHERE place_id IN ({placeholders})",
+                place_ids,
+            )
+            cur.execute(
+                f"DELETE FROM prospects WHERE place_id IN ({placeholders})",
+                place_ids,
+            )
+        self.conn.commit()
+        return len(place_ids)
 
     def save_search(
         self, city: str, type_filter: str, radius: int, places: list[dict]

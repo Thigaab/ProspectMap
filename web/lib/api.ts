@@ -64,6 +64,11 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  deleteProspect: (placeId: string) =>
+    request<void>(`/api/prospects/${encodeURIComponent(placeId)}`, {
+      method: "DELETE",
+    }),
+
   listSearches: () => request<CachedSearch[]>("/api/searches"),
 
   createSearch: (req: SearchRequest) =>
@@ -71,6 +76,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify(req),
     }),
+
+  deleteSearch: (searchId: number) =>
+    request<void>(`/api/searches/${searchId}`, { method: "DELETE" }),
 };
 
 export { ApiError };

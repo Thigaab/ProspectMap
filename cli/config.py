@@ -73,10 +73,21 @@ DETAIL_FIELDS = [
 ]
 
 SCORING = {
-    "no_website": 50,
+    # Web-presence sub-score (0–50). 50 = no site or effectively absent;
+    # individual weak-site penalties stack but are capped at no_website_max
+    # so a healthy site never beats a missing one.
+    "no_website_max": 50,
+    "weak_web_social_only": 40,
+    "weak_web_no_https": 15,
+    "weak_web_no_viewport": 15,
+    "weak_web_free_hosting": 20,
     "rating_4_plus": 20,
     "reviews_50_plus": 15,
     "reviews_100_plus": 15,
 }
 
 PRIORITY_THRESHOLDS = {"HIGH": 70, "MEDIUM": 40}
+
+WEB_AUDIT_TIMEOUT = 5.0
+WEB_AUDIT_WORKERS = 10
+WEB_AUDIT_TTL_DAYS = 30

@@ -7,6 +7,7 @@ from . import _bootstrap  # noqa: F401
 from cache import Cache  # type: ignore  # from cli/
 import leads  # type: ignore  # from cli/
 from scorer import enrich  # type: ignore  # from cli/
+import web_audit  # type: ignore  # from cli/
 
 
 def _attach_status(prospect: dict, statuses: dict[str, dict]) -> dict:
@@ -19,9 +20,18 @@ def _attach_status(prospect: dict, statuses: dict[str, dict]) -> dict:
     }
 
 
-def serialize_places(raw_places: Iterable[dict], cache: Cache) -> list[dict]:
-    """Score + sort raw places, then merge user-owned status/notes."""
-    enriched = enrich(list(raw_places))
+def serialize_places(
+    raw_places: Iterable[dict], cache: Cache, *, audit: bool = True
+) -> list[dict]:
+    """Score + sort raw places, then merge user-owned status/notes.
+
+    When `audit=True`, runs the (cached) web-quality audit so the score
+    reflects actual site quality. Audits cached in SQLite via TTL —
+    repeated calls are cheap.
+    """
+    raw_list = list(raw_places)
+    audits = web_audit.audit_places(cache.conn, raw_list) if audit else None
+    enriched = enrich(raw_list, audits=audits)
     statuses = leads.list_statuses(cache.conn)
     return [_attach_status(p, statuses) for p in enriched]
 

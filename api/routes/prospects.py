@@ -2,7 +2,7 @@
 import json
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from .. import _bootstrap  # noqa: F401
 from ..deps import get_cache
@@ -87,3 +87,11 @@ def update_prospect(
     raw = json.loads(row["raw"])
     base = to_prospect(raw)
     return {**base, **s}
+
+
+@router.delete("/{place_id}", status_code=204)
+def delete_prospect(place_id: str, cache: Cache = Depends(get_cache)):
+    """Hard-delete a prospect (and its lead status / search links)."""
+    if not cache.delete_prospect(place_id):
+        raise HTTPException(404, f"Prospect '{place_id}' not found")
+    return Response(status_code=204)

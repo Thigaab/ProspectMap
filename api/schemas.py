@@ -50,6 +50,7 @@ class SearchResponse(BaseModel):
 
 
 class CachedSearch(BaseModel):
+    id: int
     city: str
     type_filter: str
     radius: int

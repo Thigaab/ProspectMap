@@ -39,6 +39,7 @@ ProspectMap/
 │   ├── cache.py       # SQLite cache (searches + prospects, TTL-based)
 │   ├── leads.py       # lead_status table operations (user data)
 │   ├── scorer.py      # 100-point scoring + normalization
+│   ├── web_audit.py   # website quality probe (HTTP fetch + signal extraction), cached
 │   ├── exporter.py    # CSV / JSON export
 │   └── config.py      # .env loading + constants (URLs, type mapping, scoring)
 ├── api/
@@ -87,18 +88,31 @@ prepends `cli/` to `sys.path` before any cli-module import.
 
 ## Scoring (business rule, do not silently change)
 
-Per prospect, out of 100:
+Per prospect, out of 100. The web-presence sub-score is 0–50, derived from
+a lightweight HTTP audit of the prospect's website (see `cli/web_audit.py`):
 
-| Criterion              | Points |
-| ---------------------- | -----: |
-| No website             |    +50 |
-| Rating ≥ 4.0           |    +20 |
-| ≥ 50 reviews           |    +15 |
-| ≥ 100 reviews          |    +15 |
+| Criterion                                 | Points |
+| ----------------------------------------- | -----: |
+| Web presence (max)                        |  0–50  |
+| ‣ no website *or* unreachable             |    +50 |
+| ‣ social-only link (Facebook, IG, …)      |    +40 |
+| ‣ free hosting (Wix, e-monsite, …)        |    +20 |
+| ‣ no HTTPS                                |    +15 |
+| ‣ no `<meta viewport>` (not mobile)       |    +15 |
+| Rating ≥ 4.0                              |    +20 |
+| ≥ 50 reviews                              |    +15 |
+| ≥ 100 reviews                             |    +15 |
 
-Priority buckets: `HIGH ≥ 70`, `MEDIUM ≥ 40`, else `LOW`.
-All thresholds and weights live in `cli/config.py` (`SCORING`,
-`PRIORITY_THRESHOLDS`).
+Weak-web penalties stack but the web sub-score is **capped at 50**, so a
+healthy site never scores higher than no site. Priority buckets:
+`HIGH ≥ 70`, `MEDIUM ≥ 40`, else `LOW`. All thresholds, weights, and
+audit constants live in `cli/config.py` (`SCORING`,
+`PRIORITY_THRESHOLDS`, `WEB_AUDIT_*`).
+
+Audits are cached in the `web_audits` table (`prospects.db`) keyed by
+URL with a TTL of `WEB_AUDIT_TTL_DAYS` (30 days). The CLI exposes
+`--no-web-check` to skip the audit entirely; in that mode the scorer
+falls back to the original binary "has a website" rule (+50 if absent).
 
 ## Frontend
 
@@ -165,12 +179,17 @@ thread-safe, so no app-level singleton).
 ## Caching (avoid duplicate API calls)
 
 `cli/cache.py` is a SQLite layer (`prospects.db` at the repo root, gitignored
-via `*.db`). Three tables:
+via `*.db`). Tables:
 
 - `searches` — keyed by `(city, type_filter, radius)`, stores `fetched_at`.
 - `prospects` — keyed by `place_id`, stores the **raw** Place Details JSON.
 - `search_results` — link table between the two (a place can belong to
   several searches).
+- `web_audits` — keyed by URL, stores the JSON-encoded audit dict
+  (reachable, https, mobile_viewport, social_only, free_hosting…) and a
+  `fetched_at` for TTL. Read/written by `cli/web_audit.py`.
+- `lead_status` — user-owned data (status + notes per prospect), used by
+  the kanban.
 
 Flow in `main.py`:
 

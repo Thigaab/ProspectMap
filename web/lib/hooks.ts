@@ -41,6 +41,28 @@ export function useCreateSearch() {
   });
 }
 
+export function useDeleteProspect() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (placeId: string) => api.deleteProspect(placeId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PROSPECTS_KEY });
+      qc.invalidateQueries({ queryKey: SEARCHES_KEY });
+    },
+  });
+}
+
+export function useDeleteSearch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (searchId: number) => api.deleteSearch(searchId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PROSPECTS_KEY });
+      qc.invalidateQueries({ queryKey: SEARCHES_KEY });
+    },
+  });
+}
+
 export function useUpdateProspect() {
   const qc = useQueryClient();
   return useMutation({

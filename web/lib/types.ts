@@ -23,6 +23,7 @@ export type Prospect = {
 };
 
 export type CachedSearch = {
+  id: number;
   city: string;
   type_filter: string;
   radius: number;
