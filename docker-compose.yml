@@ -5,7 +5,6 @@ services:
       dockerfile: api/Dockerfile
     environment:
       PROSPECTMAP_DB: /data/prospects.db
-      CORS_ORIGINS: https://prospectmap.bantou.me
     volumes:
       - db_data:/data
     expose:
@@ -15,8 +14,10 @@ services:
     build:
       context: .
       dockerfile: web/Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: https://api.prospectmap.bantou.me
+    environment:
+      API_INTERNAL_URL: http://api:8000
+      AUTH_USER: ${AUTH_USER}
+      AUTH_PASS: ${AUTH_PASS}
     depends_on:
       - api
     expose:

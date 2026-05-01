@@ -163,10 +163,7 @@ function BackendStatus({
   }
   if (ok) {
     return (
-      <p className="text-sm text-emerald-600">
-        ✓ Backend reachable (
-        {process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}).
-      </p>
+      <p className="text-sm text-emerald-600">✓ Backend reachable.</p>
     );
   }
   return (
