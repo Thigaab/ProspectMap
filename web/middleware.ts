@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const USER = process.env.AUTH_USER ?? "";
 const PASS = process.env.AUTH_PASS ?? "";
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   if (!USER || !PASS) return NextResponse.next();
 
   const header = req.headers.get("authorization") ?? "";
@@ -13,6 +13,9 @@ export function middleware(req: NextRequest) {
     const [user, pass] = atob(encoded).split(":");
     if (user === USER && pass === PASS) return NextResponse.next();
   }
+
+  // 2s delay on every failed attempt — makes brute force impractical
+  await new Promise((r) => setTimeout(r, 2000));
 
   return new NextResponse("Unauthorized", {
     status: 401,
