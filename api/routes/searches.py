@@ -28,6 +28,16 @@ def list_searches(cache: Cache = Depends(get_cache)):
     return [dict(r) for r in rows]
 
 
+@router.delete("", status_code=204)
+def delete_all_searches(cache: Cache = Depends(get_cache)):
+    """Wipe all searches and prospects — useful to force a fresh rescore."""
+    cache.conn.executescript(
+        "DELETE FROM search_results; DELETE FROM prospects; DELETE FROM searches;"
+    )
+    cache.conn.commit()
+    return Response(status_code=204)
+
+
 @router.delete("/{search_id}", status_code=204)
 def delete_search(search_id: int, cache: Cache = Depends(get_cache)):
     """Hard-delete a search and every prospect that belonged to it."""
