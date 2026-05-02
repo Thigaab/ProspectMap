@@ -93,21 +93,25 @@ a lightweight HTTP audit of the prospect's website (see `cli/web_audit.py`):
 
 | Criterion                                 | Points |
 | ----------------------------------------- | -----: |
-| Web presence (max)                        |  0–50  |
-| ‣ no website *or* unreachable             |    +50 |
-| ‣ social-only link (Facebook, IG, …)      |    +40 |
+| Web presence (max)                        |  0–70  |
+| ‣ no website *or* unreachable             |    +70 |
+| ‣ social-only link (Facebook, IG, …)      |    +55 |
 | ‣ free hosting (Wix, e-monsite, …)        |    +20 |
-| ‣ no HTTPS                                |    +15 |
-| ‣ no `<meta viewport>` (not mobile)       |    +15 |
-| Rating ≥ 4.0                              |    +20 |
-| ≥ 50 reviews                              |    +15 |
-| ≥ 100 reviews                             |    +15 |
+| ‣ no HTTPS                                |    +12 |
+| ‣ no `<meta viewport>` (not mobile)       |    +12 |
+| Rating ≥ 4.0                              |    +15 |
+| ≥ 50 reviews                              |     +8 |
+| ≥ 100 reviews                             |     +7 |
 
-Weak-web penalties stack but the web sub-score is **capped at 50**, so a
+Weak-web penalties stack but the web sub-score is **capped at 70**, so a
 healthy site never scores higher than no site. Priority buckets:
-`HIGH ≥ 70`, `MEDIUM ≥ 40`, else `LOW`. All thresholds, weights, and
+`HIGH ≥ 70`, `MEDIUM ≥ 35`, else `LOW`. All thresholds, weights, and
 audit constants live in `cli/config.py` (`SCORING`,
 `PRIORITY_THRESHOLDS`, `WEB_AUDIT_*`).
+
+Chain filtering: big franchises are excluded before Place Details calls via
+`config.CHAIN_BLOCKLIST` + `config.is_chain()`. Applied in
+`places.py:search_prospects` on the nearby search results name.
 
 Audits are cached in the `web_audits` table (`prospects.db`) keyed by
 URL with a TTL of `WEB_AUDIT_TTL_DAYS` (30 days). The CLI exposes

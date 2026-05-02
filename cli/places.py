@@ -76,7 +76,7 @@ class PlacesClient:
                 on_progress(f"Searching {t}", 0, 0)
             for raw in self.nearby_search(latitude, longitude, radius, t):
                 pid = raw.get("place_id")
-                if pid and pid not in seen:
+                if pid and pid not in seen and not config.is_chain(raw.get("name", "")):
                     seen.add(pid)
                     raw_places.append(raw)
 
